@@ -23,3 +23,10 @@ The maintained interface is now the single Explorer shell, with the root forward
 The previous two-scenario browser suite and one-active-project description are superseded by the Explorer tests and project-library implementation.
 
 - Automated WCAG A/AA checks found no violations on Explore, Design, Projects, Learn and the mobile landing screen. Screenshots were reviewed locally; these checks do not replace user accessibility testing.
+
+## Public reference fix
+
+- Four endpoint tests pass: constrained search, invalid inputs/methods, empty/error responses, annotated-reference download.
+- Live explorer API search returned APOE RefSeqGene `NG_007084.2`; download returned 34,687 characters. The downloaded record produced two native APOE R176C design alternatives against transcript `NM_000041.4`.
+- Combined production build passed with reference lookup enabled, and the preview was restarted with the shared API plugin.
+- A deterministic browser regression was added for gene search → accession selection → download → design. The attempted full browser rerun encountered Chrome startup timeouts on the local machine; the last passing four-scenario run predates this fix. Endpoint/native-design verification is recorded separately from browser verification.

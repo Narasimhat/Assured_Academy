@@ -14,7 +14,8 @@
     "test:engines": "npm run test:engines --workspace=apps/studio",
     "verify:vendor": "node apps/studio/scripts/verify-vendor.mjs",
     "predev": "node scripts/build-suite.mjs --studio-only",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:reference": "node --test test/server/reference.test.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

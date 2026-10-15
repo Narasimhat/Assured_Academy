@@ -80,3 +80,17 @@ test('imported project is retained when starting another exploration',async({pag
  await expect(page.getByRole('textbox',{name:'Gene symbol',exact:true})).toHaveValue('MYD88');
  await expect(page.getByRole('textbox',{name:'What are you trying to understand? (optional)',exact:true})).toHaveValue('Preserve this question.');
 });
+
+test('public reference search and download connect to the design input',async({page})=>{
+ const fs=await import('node:fs/promises');const text=await fs.readFile(new URL('../apps/studio/public/examples/apoe-reference.gb',import.meta.url),'utf8');
+ await page.route('**/api/reference?**',route=>{const u=new URL(route.request().url());return route.fulfill({contentType:'application/json',body:JSON.stringify(u.searchParams.has('gene')?{records:[{accession:'NG_007084.2',title:'Human APOE RefSeqGene'}]}:{accession:'NG_007084.2',text,sourceUrl:'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NG_007084.2&rettype=gbwithparts&retmode=text'})});});
+ await page.goto('/studio/');await page.getByRole('button',{name:'Start a project',exact:true}).click();
+ await page.getByRole('textbox',{name:'Gene symbol',exact:true}).fill('APOE');await page.getByRole('textbox',{name:'Amino-acid change',exact:true}).fill('R176C');
+ await page.getByRole('button',{name:'Find in NCBI',exact:true}).click();
+ await expect(page.getByRole('combobox',{name:'Choose a versioned genomic reference',exact:true})).toHaveValue('NG_007084.2');
+ await page.getByRole('button',{name:'Use this reference',exact:true}).click();
+ await expect(page.getByText('NG_007084.2',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Explore design',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Explore design',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'APOE · R176C',exact:true})).toBeVisible();
+});

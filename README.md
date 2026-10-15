@@ -19,14 +19,14 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite (normally `http://localhost:5173`). The root opens the single explorer shell at `/studio/`. Studio is built before development starts; after editing Studio, restart the root dev server to rebuild it. For Studio hot reload and the optional local NCBI reference proxy, run `npm run dev:studio` at `http://127.0.0.1:5182`.
+Open the URL printed by Vite (normally `http://localhost:5173`). The root opens the single explorer shell at `/studio/`. Studio is built before development starts; after editing Studio, restart the root dev server to rebuild it. For Studio hot reload, run `npm run dev:studio` at `http://127.0.0.1:5182`.
 
 ```sh
 npm run build
 npm run preview
 ```
 
-The combined preview is at `http://127.0.0.1:5183/`. Static hosting supports reference upload and the included examples; online NCBI lookup requires the standalone local server.
+The combined preview is at `http://127.0.0.1:5183/`. Public reference search/download works in both development and preview servers. The included `/api/reference` function supplies the same restricted NCBI endpoint on Vercel; hosting as static files alone requires that endpoint to be provided separately. Reference upload and included examples work without it.
 
 ## Your data
 
@@ -43,6 +43,7 @@ Earlier Academy teaching modules remain in the source under `src/`, with their p
 ## Verify
 
 ```sh
+npm run test:reference
 npm run test:studio
 npm run verify:vendor
 npm run test:e2e

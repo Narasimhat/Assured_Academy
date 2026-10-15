@@ -27,3 +27,9 @@ Updated adapter tests verify known knockout mixtures and uncertain functional pr
 ## Next priorities
 
 Test comprehension with newcomers, improve project-library search and storage usage visibility, add short example-specific interpretation prompts, review inherited scientific teaching content before reintroducing it, and address inherited build-tool dependency advisories. New modules should support a specific project decision rather than add another top-level destination.
+
+## Public reference correction
+
+Reference lookup is now enabled in the combined Explorer build. `apps/studio/server/reference-api.mjs` provides one restricted NCBI handler shared by both Vite servers and the root `api/reference.js` hosting function. The client uses `/api/reference?gene=...` for search and `/api/reference?accession=...` for download. Invalid gene symbols, non-versioned/non-RefSeqGene accessions and arbitrary destination URLs are rejected; only the fixed NCBI origin is used. Service errors remain visible, and an unavailable/non-JSON backend produces an explanatory message rather than a JSON parse error. Project/trace data is not sent to NCBI. Delayed downloads apply only to the project and gene that initiated them.
+
+Routing guidance: https://vercel.com/docs/frameworks/frontend/vite and https://vercel.com/docs/routing/rewrites. The API has an explicit route ahead of the SPA fallback. Hosting changes are prepared on the draft branch, not deployed or promoted.

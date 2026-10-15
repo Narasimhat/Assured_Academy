@@ -6,7 +6,7 @@ function run(args, env = {}) {
 }
 const studioOnly = process.argv.includes('--studio-only');
 if (!studioOnly) run(['run','build:academy']);
-run(['run','build','--workspace=apps/studio','--','--base=/studio/'], {VITE_REFERENCE_LOOKUP:'false',VITE_ACADEMY_HOME:'/'});
+run(['run','build','--workspace=apps/studio','--','--base=/studio/'], {VITE_REFERENCE_LOOKUP:'true',VITE_ACADEMY_HOME:'/'});
 if (studioOnly) process.exit(0);
 await mkdir('dist/studio',{recursive:true});
 await cp('apps/studio/dist','dist/studio',{recursive:true});
