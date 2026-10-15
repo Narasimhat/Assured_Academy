@@ -7,6 +7,6 @@
 - 2 suite browser scenarios passed: Academy → Studio example design in a worker → ZIP export → IndexedDB restore → Academy; mobile learning → teaching workbench → Studio navigation.
 - Local-only check: existing APOE project ZIP restored all 24 clone results at the integrated `/studio/` route with no page errors. The project, raw traces and screenshots are not committed.
 - Root development server returned HTTP 200 for bundled Studio at `/studio/`.
-- `git diff --check` passed; no experimental validation run files or new private trace data are staged.
+- `git diff --check` passed for maintained source (pinned vendor bytes and the NCBI reference retain original whitespace via `.gitattributes`); no experimental validation run files or new private trace data are staged.
 
 The dependency audit reports seven inherited Tailwind 3 build-tool advisories. Automated checks do not establish clinical or laboratory accuracy. Upstream simulated tests and successful historical-project restoration are software checks, not independent biological validation.

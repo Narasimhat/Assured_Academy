@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           
           {/* Logo & Branding */}
-          <button type="button" aria-label="Academy home" className="flex items-center gap-3 text-left" onClick={() => setActiveTab('home')}>
+          <button type="button" aria-label="Academy home" className="flex shrink-0 items-center gap-3 text-left" onClick={() => setActiveTab('home')}>
             <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 text-slate-950 shadow-lg shadow-cyan-500/20">
               <Dna className="w-6 h-6 animate-pulse" />
             </div>
@@ -152,7 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Quick Link to Vercel Tools */}
-            <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-800">
+            <div className="hidden 2xl:flex items-center gap-2 pl-2 border-l border-slate-800">
               <a
                 href="https://assured-crispr-design.vercel.app"
                 target="_blank"
