@@ -47,6 +47,7 @@ export const ToolLaunchpad: React.FC = () => {
         </p>
       </div>
 
+      <section className="rounded-3xl border border-emerald-700 bg-emerald-950/40 p-6"><h2 className="text-xl font-bold">Design and QC together in Assured Studio</h2><p className="mt-2 text-slate-300">Work locally with your reference, expected edit, matched controls and trace results. Restore existing results with Open project and a .assured.zip file.</p><a href="/studio/" className="mt-4 inline-flex items-center gap-2 font-bold text-emerald-300">Open Studio <ArrowRight size={16}/></a></section>
       {/* Production Web Tools Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         

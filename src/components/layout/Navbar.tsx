@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('academy')}>
+          <button type="button" aria-label="Academy home" className="flex items-center gap-3 text-left" onClick={() => setActiveTab('home')}>
             <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 text-slate-950 shadow-lg shadow-cyan-500/20">
               <Dna className="w-6 h-6 animate-pulse" />
             </div>
@@ -50,10 +50,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Democratizing Pluripotent Stem Cell Gene Editing
               </p>
             </div>
-          </div>
+          </button>
 
           {/* Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1"><a href="/studio/" className="px-3 py-2 rounded-lg text-sm font-bold text-emerald-300 hover:bg-slate-900">Studio</a>
             <button
               onClick={() => setActiveTab('workbench')}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Workflow className="w-4 h-4 text-cyan-400" />
-              <span className="font-bold">Workbench</span>
+              <span className="font-bold">Practice</span>
               <span className="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
                 5-Stage
               </span>
@@ -177,11 +177,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Navigation bar */}
         <div className="flex md:hidden items-center justify-around py-2 border-t border-slate-900 overflow-x-auto text-xs">
+          <a href="/studio/" className="px-2 py-1 font-bold text-emerald-300">Studio</a>
           <button 
             onClick={() => setActiveTab('workbench')} 
             className={`px-2 py-1 ${activeTab === 'workbench' ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}
           >
-            Workbench
+            Practice
           </button>
           <button 
             onClick={() => setActiveTab('academy')} 

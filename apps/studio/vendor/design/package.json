@@ -1,0 +1,1 @@
+{"private":true,"type":"commonjs","description":"Snapshot boundary: preserves the upstream repository root's CommonJS semantics. The nested designer package remains ESM."}

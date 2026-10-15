@@ -1,4 +1,4 @@
-export type TabType = 'workbench' | 'academy' | 'simulator' | 'frugal' | 'missions' | 'suite';
+export type TabType = 'home' | 'workbench' | 'academy' | 'simulator' | 'frugal' | 'missions' | 'suite';
 
 export interface QuizQuestion {
   id: string;

@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-14",
+  "release": "0.1.0",
+  "engineTests": {
+    "passed": 541,
+    "failed": 0
+  },
+  "studioTests": {
+    "passed": 12,
+    "failed": 0
+  },
+  "browserScenarios": {
+    "passed": 5,
+    "failed": 0,
+    "targetedReruns": "passed"
+  },
+  "productionBuild": "passed",
+  "vendorFilesVerified": 288,
+  "knownDependencyVulnerabilities": 0,
+  "originalSourceWorkingTrees": "clean",
+  "deployment": "local only",
+  "limitations": [
+    "No new experimental truth validation",
+    "No novice user study",
+    "Automated accessibility is not manual screen-reader verification"
+  ]
+}

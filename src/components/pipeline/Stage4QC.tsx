@@ -71,9 +71,9 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
           }
         })
         .catch(err => {
-          console.warn('Real trace file not yet reachable, falling back to simulated model', err);
-          const isHet = selectedClone.status === 'HETEROZYGOUS_KI';
-          setActiveTrace(generateSyntheticTrace(selectedClone.chromatogramSequence, isHet));
+          console.warn('Trace could not be loaded', err);
+          setActiveTrace(null);
+          setUploadError('The trace could not be loaded. Upload the original AB1 or open it in Studio. No simulated replacement was used.');
           setIsLoadingTrace(false);
         });
     } else {
@@ -187,14 +187,14 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
 
       if (kiScore >= 80 || recText.includes('first choice') && kiScore > 50) {
         status = 'HOMOZYGOUS_KI';
-        statusLabel = `True Homozygous Knock-In (${kiScore.toFixed(0)}% HDR)`;
+        statusLabel = `High intended-edit score (${kiScore.toFixed(0)}% HDR; zygosity unconfirmed)`;
         recommended = true;
       } else if (kiScore >= 35) {
         status = 'HETEROZYGOUS_KI';
         statusLabel = `Heterozygous Knock-In (${kiScore.toFixed(0)}% HDR)`;
       } else if (koScore >= 70 || recText.includes('first choice') && koScore > 50) {
         status = 'INDEL_KO';
-        statusLabel = `Complete Functional Knockout (${koScore.toFixed(0)}% Indel)`;
+        statusLabel = `Indel candidate (${koScore.toFixed(0)}%; function unconfirmed)`;
         recommended = true;
       } else if (recText.includes('backup')) {
         status = 'INDEL_KO';
@@ -212,7 +212,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
         hdrPercentage: kiScore,
         indelPercentage: koScore,
         wtPercentage: Math.max(0, 100 - kiScore - koScore),
-        silentBlockVerified: kiScore > 50,
+        silentBlockVerified: false,
         chromatogramSequence: 'A-C-C-T-G-A-C-T-C-C-T-G-A-G-G-A-G-A-A-G-T-C-T',
         isRecommendedForExpansion: recommended,
         r2ModelFit: r2
