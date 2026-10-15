@@ -1,14 +1,40 @@
 import { createProject, validateProject } from './project.js';
 import { checkZipLimits } from './zipLimits.js';
 const DB='assured-studio-v1';
-function open(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onupgradeneeded=()=>req.result.createObjectStore('workspace');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
-export async function readWorkspace() {
- const db=await open();
- try{return await new Promise((resolve,reject)=>{const req=db.transaction('workspace').objectStore('workspace').get('current');req.onsuccess=()=>resolve(req.result?{project:validateProject(req.result.project),files:req.result.files||[]}:null);req.onerror=()=>reject(req.error);});}finally{db.close();}
+function summary(project) { return {id:project.id,title:project.title,updatedAt:project.updatedAt,gene:project.input.gene,type:project.input.type,isExample:project.isExample,dataOrigin:project.dataOrigin,status:project.qc?'Evidence available':project.qcSpec?'Design available':'Question in progress',samples:project.qc?.results?.length||0}; }
+export function hasProjectContent(project,files=[]) { return Boolean(files.length||project.importedProjectId||project.input.cellLine||project.input.mutation||project.input.type!=='pm'||project.input.delivery!=='rnp'||project.input.gene||project.input.reference||project.qcSpec||project.qc||project.experiment.notes||project.title!=='Untitled exploration'); }
+function open(){return new Promise((resolve,reject)=>{
+ const req=indexedDB.open(DB,2);
+ req.onupgradeneeded=()=>{
+  const db=req.result;
+  if(!db.objectStoreNames.contains('workspace'))db.createObjectStore('workspace');
+  if(!db.objectStoreNames.contains('projects'))db.createObjectStore('projects');
+  if(!db.objectStoreNames.contains('catalog'))db.createObjectStore('catalog');
+  const old=req.transaction.objectStore('workspace').get('current');
+  old.onsuccess=()=>{if(old.result?.project?.id&&hasProjectContent(old.result.project,old.result.files||[])){req.transaction.objectStore('projects').put(old.result,old.result.project.id);req.transaction.objectStore('catalog').put(summary(old.result.project),old.result.project.id);}};
+ };
+ req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result);};req.onerror=()=>reject(req.error);
+ req.onblocked=()=>reject(new Error('Close other Assured tabs, then reload to upgrade your local project library.'));
+});}
+async function readRecord(store,key) {
+ const db=await open();try{return await new Promise((resolve,reject)=>{const req=db.transaction(store).objectStore(store).get(key);req.onsuccess=()=>resolve(req.result?{project:validateProject(req.result.project),files:req.result.files||[]}:null);req.onerror=()=>reject(req.error);});}finally{db.close();}
 }
-export async function saveWorkspace(project,files) {
- const db=await open();
- try{await new Promise((resolve,reject)=>{const tx=db.transaction('workspace','readwrite');tx.objectStore('workspace').put({project,files},'current');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Save aborted'));});}finally{db.close();}
+export function readWorkspace(){return readRecord('workspace','current');}
+export function readProject(id){return readRecord('projects',id);}
+export async function listProjects(){
+ const db=await open();try{return await new Promise((resolve,reject)=>{const req=db.transaction('catalog').objectStore('catalog').getAll();req.onsuccess=()=>resolve(req.result.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)));req.onerror=()=>reject(req.error);});}finally{db.close();}
+}
+let saving=Promise.resolve();
+export function saveWorkspace(project,files) {
+ // Snapshot at invocation and serialize saves so an older write cannot replace newer work.
+ const record=structuredClone({project,files});
+ const write=async()=>{const db=await open();try{await new Promise((resolve,reject)=>{
+  const tx=db.transaction(['workspace','projects','catalog'],'readwrite');
+  tx.objectStore('workspace').put(record,'current');
+  if(hasProjectContent(record.project,record.files)){tx.objectStore('projects').put(record,record.project.id);tx.objectStore('catalog').put(summary(record.project),record.project.id);}
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Save aborted'));
+ });}finally{db.close();}};
+ const next=saving.then(write,write);saving=next.catch(()=>{});return next;
 }
 export async function exportBundle(project,files) {
  const {default:JSZip}=await import('jszip');

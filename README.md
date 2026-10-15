@@ -1,11 +1,14 @@
-# Assured Academy + Studio
+# Assured Explorer
 
-Learn genome engineering concepts, practice a project, and work with your own reference sequences and Sanger traces in one repository.
+An exploratory workspace for genome engineering: start with a question, consider a design, and examine the evidence.
 
-- **Academy (`/`)**: curriculum, a teaching workbench, virtual bench, resource planning and disease-model exercises.
-- **Studio (`/studio/`)**: pinned Assured CRISPR Design and Assured QC engines connected by an expected-edit handoff, matched controls, trace analysis, visible uncertainty and portable project bundles.
+The interface has three destinations:
 
-This integration is a development release. Teaching presets and simulations are learning material, not experimental validation. Sequence calls do not confirm functional knockout, copy number or biological zygosity. Existing Designer and QC deployments remain independent.
+- **Explore:** a point-change example and a knockout example, with public reference sequences and explicitly simulated evidence.
+- **Projects:** your local project library, including designs, original traces, notes and saved results. Import/export portable `.assured.zip` bundles.
+- **Learn:** short, searchable explanations of the concepts used in a project.
+
+Each project follows **Question → Design → Evidence**. Full sequences and technical model details are expandable; material design/QC warnings remain visible. The pinned Assured CRISPR Design and Assured QC engines are unchanged.
 
 ## Run locally
 
@@ -16,32 +19,38 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite (normally `http://localhost:5173`). Studio is built before the development server starts and is served at `/studio/`. Academy has hot reload; after editing Studio, restart `npm run dev` to rebuild it. For Studio hot reload and optional NCBI reference lookup, run `npm run dev:studio` separately at `http://127.0.0.1:5182`.
+Open the URL printed by Vite (normally `http://localhost:5173`). The root opens the single explorer shell at `/studio/`. Studio is built before development starts; after editing Studio, restart the root dev server to rebuild it. For Studio hot reload and the optional local NCBI reference proxy, run `npm run dev:studio` at `http://127.0.0.1:5182`.
 
 ```sh
 npm run build
 npm run preview
 ```
 
-The combined preview is at `http://127.0.0.1:5183/`. Both apps are included in `dist`. The static suite uses uploaded GenBank files or the included APOE example; it does not expose the standalone local NCBI proxy.
+The combined preview is at `http://127.0.0.1:5183/`. Static hosting supports reference upload and the included examples; online NCBI lookup requires the standalone local server.
 
-## Open existing results
+## Your data
 
-Choose **Open Assured Studio → Open project** and select a `.assured.zip` file. Studio restores the design, original traces, notes and saved results. Projects stay in the browser's IndexedDB unless exported; there is one active Studio project at a time. Export a backup before clearing browser data. Academy's teaching state and Studio's analytical state are intentionally separate; a teaching preset does not become an experimental result.
+Choose **Projects → Import saved project** to restore an existing `.assured.zip`. Imported bundles become separate local projects, preserving the original ID as provenance. Projects autosave; creating another project does not replace previous entries. Version-one workspaces migrate to the library with attached trace bytes preserved.
 
-No new experimental traces, Drive files or private project reports are included in this integration. The repository's existing public sample assets remain as inherited.
+Use **Export project** within a project to save a portable backup. Browser storage is local to the origin/browser profile and can be cleared or evicted. There are no accounts, cloud backups or automatic transfers between localhost ports. No new private experimental data is included in this repository.
+
+## Boundaries
+
+This is a development release for research and learning. Public references require independent parental-line review. Sequence calls do not confirm functional knockout, copy number or biological zygosity. Intervals are simulation-calibrated and can be too narrow on experimental data. Genome-wide specificity and functional confirmation remain external tasks.
+
+Earlier Academy teaching modules remain in the source under `src/`, with their prior shell preserved as `src/LegacyAcademyApp.tsx`. They are not imported into the explorer entry point. Points, certificates, virtual bench, cost calculator, ordering and prewritten publication methods are excluded from the default experience pending review. Existing independently deployed apps remain untouched.
 
 ## Verify
 
 ```sh
 npm run test:studio
-npm run test:engines
 npm run verify:vendor
 npm run test:e2e
+npm run test:engines
 ```
 
-Browser tests use installed macOS Chrome, `ASSURED_CHROME_EXECUTABLE`, or Playwright Chromium (`npx playwright install chromium`). The integration tests run offline; the standalone Studio's older browser suite also includes an optional network-dependent NCBI exercise.
+The browser suite checks examples, worker analysis, project persistence, export/import, mobile learning and migration from the prior IndexedDB format. It uses installed macOS Chrome, `ASSURED_CHROME_EXECUTABLE`, or Playwright Chromium (`npx playwright install chromium`). The legacy standalone Studio browser tests describe the earlier interface; the maintained explorer browser suite is at `test/academy-studio.spec.mjs`.
 
-See [integration notes](docs/STUDIO_INTEGRATION.md) and [Studio documentation](apps/studio/README.md). Upstream provenance and source checksums are preserved under `apps/studio/vendor`. Assured QC's MIT license is retained; this integration does not add a new license grant for the Designer source.
+See [simplification notes](docs/EXPLORER_SIMPLIFICATION.md). Upstream provenance and source checksums remain under `apps/studio/vendor`; Assured QC's MIT license is retained. This integration adds no new license grant for the Designer source. Seven inherited Tailwind 3 build-tool dependency advisories remain documented in [integration notes](docs/STUDIO_INTEGRATION.md).
 
 Author: Dr. Narasimha Telugu. Original method: ASSURED-optimized CRISPR workflow, STAR Protocols, Max Delbrück Center for Molecular Medicine, Berlin.

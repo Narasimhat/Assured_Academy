@@ -1,3 +1,5 @@
+> Historical integration/initial Studio notes. The current Explorer interface and project library are described in the repository README and `docs/EXPLORER_SIMPLIFICATION.md`.
+
 # Validation evidence
 
 Software validation is separate from biological/experimental validation. This workspace has not been validated against new laboratory truth and has not undergone novice user studies.

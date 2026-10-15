@@ -10,3 +10,16 @@
 - `git diff --check` passed for maintained source (pinned vendor bytes and the NCBI reference retain original whitespace via `.gitattributes`); no experimental validation run files or new private trace data are staged.
 
 The dependency audit reports seven inherited Tailwind 3 build-tool advisories. Automated checks do not establish clinical or laboratory accuracy. Upstream simulated tests and successful historical-project restoration are software checks, not independent biological validation.
+
+## Explorer simplification update
+
+The maintained interface is now the single Explorer shell, with the root forwarding to `/studio/`. The prior Academy shell and modules are retained in source but excluded from the default experience.
+
+- 13 Studio adapter/integration tests pass, including recovery of known 100%, 50% and 20% knockout exercise mixtures with uncertain functional predictions retained.
+- 4 maintained browser scenarios pass: both examples and worker QC with project switching/export/restore; mobile navigation and concept search; version-one IndexedDB migration with exact trace bytes; imported-project retention after starting another project.
+- Combined TypeScript/Vite build and 288 pinned source hash checks pass. No upstream engine source changed; the earlier 541-engine-test run remains the source-snapshot verification.
+- Local-only historical APOE restore still opens all 24 clone results without browser errors; no private project data or screenshots are committed.
+
+The previous two-scenario browser suite and one-active-project description are superseded by the Explorer tests and project-library implementation.
+
+- Automated WCAG A/AA checks found no violations on Explore, Design, Projects, Learn and the mobile landing screen. Screenshots were reviewed locally; these checks do not replace user accessibility testing.

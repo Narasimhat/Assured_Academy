@@ -77,3 +77,15 @@ test('knockout reports expose the sequence proxy instead of a nonexistent SNP sc
  const p=qcProject();p.qc={workflow:'knockout',finishedAt:new Date().toISOString(),results:[{name:'clone1',summary:{koScorePct:93,intendedEditPct:0},decision:{decision:'hold',next:'Confirm protein.'},confidence:{tier:'moderate'}}]};
  const html=projectReport(p);assert.ok(html.includes('KO sequence proxy'));assert.ok(html.includes('93.0%'));assert.ok(!html.includes('<th>Intended edit</th>'));
 });
+
+test('knockout exercise recovers the known deletion mixtures without claiming functional evidence',async()=>{
+ const dir=new URL('../public/examples/knockout/',import.meta.url);
+ const spec=JSON.parse(fs.readFileSync(new URL('design.json',dir),'utf8'));
+ const expected=designProject({...input,type:'ko',mutation:''});assert.deepEqual(spec,expected.pairs[0].spec);
+ const names=['APOE_WT.ab1','APOE_A01.ab1','APOE_A02.ab1','APOE_A03.ab1'];
+ const reads=names.map(name=>({name,buffer:Uint8Array.from(fs.readFileSync(new URL(name,dir))).buffer}));
+ const p=createProject();p.qcSpec=spec;p.dataOrigin='simulated';p.isExample=true;p.input.type='ko';
+ p.pairs=names.slice(1).map((edited,i)=>({sample:'KO_'+i,edited,control:names[0],confirmed:true}));
+ const out=await analyzeProject(p,reads);assert.equal(out.dataOrigin,'simulated');
+ for(const [i,r]of out.results.entries()){assert.equal(r.ok,true);assert.ok(Math.abs(r.summary.editedPct-[100,50,20][i])<5);assert.ok(r.summary.betweenCutsPct>=[95,45,15][i]);assert.equal(r.summary.functionalKoPct,0);assert.ok(r.summary.functionalUncertainPct>=r.summary.editedPct-5);}
+});

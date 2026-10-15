@@ -1,3 +1,5 @@
+> Historical integration/initial Studio notes. The current Explorer interface and project library are described in the repository README and `docs/EXPLORER_SIMPLIFICATION.md`.
+
 # Studio integration
 
 ## Structure and boundaries
