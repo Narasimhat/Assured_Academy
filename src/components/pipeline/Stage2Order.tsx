@@ -24,6 +24,8 @@ export const Stage2Order: React.FC<Stage2OrderProps> = ({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const target = project.target;
 
+  const isKnockout = target.targetType === 'KNOCKOUT' || !target.donor?.sequence || target.donor.sequence === 'N/A';
+
   // Format IDT Ordering Table
   const idtItems = [
     {
@@ -40,13 +42,13 @@ export const Stage2Order: React.FC<Stage2OrderProps> = ({
       purification: 'Standard Desalt',
       type: 'Guide RNA'
     },
-    {
+    ...(!isKnockout ? [{
       name: `${target.gene}_ssODN_Donor`,
       sequence: target.donor.sequence.replace(/5'-|3'|-/g, ''),
       scale: '4 nmol Ultramer DNA (PTO modified)',
       purification: 'Standard Desalt',
       type: 'HDR Repair Template'
-    },
+    }] : []),
     {
       name: target.primers.forwardPrimer.name,
       sequence: target.primers.forwardPrimer.sequence,
@@ -176,9 +178,15 @@ export const Stage2Order: React.FC<Stage2OrderProps> = ({
               </table>
             </div>
 
-            <p className="text-[11px] text-slate-500 pt-2">
-              * Note: The ssODN sequence uses asterisks (<code className="text-cyan-400">*</code>) to denote phosphorothioate internucleotide linkages recognized directly by IDT's ordering portal.
-            </p>
+            {!isKnockout ? (
+              <p className="text-[11px] text-slate-500 pt-2">
+                * Note: The ssODN sequence uses asterisks (<code className="text-cyan-400">*</code>) to denote phosphorothioate internucleotide linkages recognized directly by IDT's ordering portal.
+              </p>
+            ) : (
+              <p className="text-[11px] text-emerald-400/90 pt-2 bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40">
+                ✓ <strong>NHEJ Knockout Mode:</strong> Single or dual crRNAs generate targeted frameshift indels or segmental excision without an exogenous donor ssODN.
+              </p>
+            )}
           </div>
         </div>
 

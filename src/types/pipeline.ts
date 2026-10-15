@@ -48,6 +48,9 @@ export interface TargetLocus {
   guides: GuideRNA[];
   donor: DonorTemplate;
   primers: PrimerPair;
+  targetType?: 'SNP_KNOCKIN' | 'KNOCKOUT';
+  controlAb1Url?: string;
+  batchCsvUrl?: string;
 }
 
 export interface BenchProtocolState {
@@ -75,6 +78,8 @@ export interface QCCloneResult {
   silentBlockVerified: boolean;
   chromatogramSequence: string;
   isRecommendedForExpansion: boolean;
+  ab1TraceUrl?: string;
+  r2ModelFit?: number;
 }
 
 export interface PublicationFigureConfig {

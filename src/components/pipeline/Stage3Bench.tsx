@@ -23,6 +23,7 @@ export const Stage3Bench: React.FC<Stage3BenchProps> = ({
   onProceed
 }) => {
   const bench = project.bench;
+  const isKnockout = project.target.targetType === 'KNOCKOUT' || !project.target.donor?.sequence || project.target.donor.sequence === 'N/A';
   const [cuvettes, setCuvettes] = useState(bench.cuvettesCount || 2);
   const [cellsPerCuvette, setCellsPerCuvette] = useState(bench.cellsPerCuvette || 500000);
   const [confluency, setConfluency] = useState(bench.cellConfluencyRecorded || 75);
@@ -30,11 +31,11 @@ export const Stage3Bench: React.FC<Stage3BenchProps> = ({
   // Dynamic calculations based on STAR Protocols formula:
   // Per cuvette: 20 pmol Cas9 = ~1.0 µL (at 20 µM / 3.3 µg)
   // 40 pmol sgRNA (1:2 ratio) = ~1.5 µL (at 30 µM)
-  // 100 pmol ssODN = ~1.0 µL (at 100 µM)
+  // 100 pmol ssODN = ~1.0 µL (at 100 µM) - Omitted for NHEJ KO
   // P3 Buffer = 20 µL per cuvette
   const cas9Total = (cuvettes * 1.0).toFixed(1);
   const gRNATotal = (cuvettes * 1.5).toFixed(1);
-  const ssodnTotal = (cuvettes * 1.0).toFixed(1);
+  const ssodnTotal = isKnockout ? '0.0' : (cuvettes * 1.0).toFixed(1);
   const p3Total = cuvettes * 20;
 
   const handleUpdate = () => {
@@ -154,7 +155,9 @@ export const Stage3Bench: React.FC<Stage3BenchProps> = ({
 
               <div className="flex justify-between py-1 border-b border-slate-800">
                 <span className="text-slate-300">ssODN Donor (100 µM):</span>
-                <span className="font-bold text-emerald-400">{ssodnTotal} µL ({cuvettes * 100} pmol)</span>
+                <span className={`font-bold ${isKnockout ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>
+                  {isKnockout ? '0.0 µL (Omitted for KO)' : `${ssodnTotal} µL (${cuvettes * 100} pmol)`}
+                </span>
               </div>
 
               <div className="flex justify-between py-1">
@@ -164,7 +167,7 @@ export const Stage3Bench: React.FC<Stage3BenchProps> = ({
             </div>
 
             <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-800/40 text-[11px] text-amber-200/90 leading-relaxed">
-              💡 <strong>Incubation Rule:</strong> Pre-incubate Cas9 + sgRNA for 10 minutes at room temperature to allow RNP complex assembly before adding cells and ssODN.
+              💡 <strong>Incubation Rule:</strong> Pre-incubate Cas9 + sgRNA for 10 minutes at room temperature to allow RNP complex assembly before adding cells{!isKnockout ? ' and ssODN' : ''}.
             </div>
           </div>
         </div>

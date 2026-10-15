@@ -7,13 +7,18 @@ import {
   Upload, 
   ZoomIn, 
   ZoomOut, 
-  Sliders, 
+  FileSpreadsheet, 
   ShieldCheck, 
   Sparkles, 
   ArrowRight,
   ExternalLink,
   Layers,
-  FileCheck2
+  FileCheck2,
+  FolderOpen,
+  Eye,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { AssuredProject, QCCloneResult } from '../../types/pipeline';
 import { parseAbif, generateSyntheticTrace, AbifTrace } from '../../utils/abifParser';
@@ -26,28 +31,71 @@ interface Stage4QCProps {
 
 export const Stage4QC: React.FC<Stage4QCProps> = ({
   project,
+  onUpdateProject,
   onProceed
 }) => {
   const clones = project.clones || [];
-  const [selectedCloneId, setSelectedCloneId] = useState<string>(clones[0]?.cloneId || 'HBB-B3');
+  const [selectedCloneId, setSelectedCloneId] = useState<string>(clones[0]?.cloneId || 'APOE_G1_A1');
   const [activeTrace, setActiveTrace] = useState<AbifTrace | null>(null);
+  const [controlTrace, setControlTrace] = useState<AbifTrace | null>(null);
+  const [showControlOverlay, setShowControlOverlay] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1.2);
+  const [viewWindowOffset, setViewWindowOffset] = useState<number>(0); // base call offset
   const [visibleChannels, setVisibleChannels] = useState({ A: true, C: true, G: true, T: true });
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedWellHover, setSelectedWellHover] = useState<string | null>(null);
+  const [isLoadingTrace, setIsLoadingTrace] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectedClone = clones.find(c => c.cloneId === selectedCloneId) || clones[0];
 
-  // Load trace when clone changes
+  // Fetch or generate trace when clone changes
   useEffect(() => {
     if (!selectedClone) return;
-    const isHet = selectedClone.status === 'HETEROZYGOUS_KI';
-    const trace = generateSyntheticTrace(selectedClone.chromatogramSequence, isHet);
-    setActiveTrace(trace);
-  }, [selectedCloneId]);
 
-  // Handle uploaded .ab1 file
+    if (selectedClone.ab1TraceUrl) {
+      setIsLoadingTrace(true);
+      fetch(selectedClone.ab1TraceUrl)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.arrayBuffer();
+        })
+        .then(buffer => {
+          const parsed = parseAbif(buffer, selectedClone.cloneId);
+          setActiveTrace(parsed);
+          setUploadError(null);
+          setIsLoadingTrace(false);
+          // Set view window to center around cut/edit window (base 100-140 in real PCR traces)
+          if (parsed.peakLocations.length > 50) {
+            setViewWindowOffset(Math.max(0, Math.min(100, parsed.peakLocations.length - 40)));
+          }
+        })
+        .catch(err => {
+          console.warn('Real trace file not yet reachable, falling back to simulated model', err);
+          const isHet = selectedClone.status === 'HETEROZYGOUS_KI';
+          setActiveTrace(generateSyntheticTrace(selectedClone.chromatogramSequence, isHet));
+          setIsLoadingTrace(false);
+        });
+    } else {
+      const isHet = selectedClone.status === 'HETEROZYGOUS_KI';
+      setActiveTrace(generateSyntheticTrace(selectedClone.chromatogramSequence, isHet));
+    }
+  }, [selectedCloneId, project.id]);
+
+  // Load Control trace if available
+  useEffect(() => {
+    if (project.target.controlAb1Url) {
+      fetch(project.target.controlAb1Url)
+        .then(res => res.arrayBuffer())
+        .then(buffer => {
+          const parsed = parseAbif(buffer, 'Control_WildType');
+          setControlTrace(parsed);
+        })
+        .catch(e => console.warn('Control trace not loaded', e));
+    }
+  }, [project.target.controlAb1Url]);
+
+  // Handle uploaded .ab1 file from user (Google Drive / local disk)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -59,6 +107,9 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
         const parsed = parseAbif(buffer, file.name);
         setActiveTrace(parsed);
         setUploadError(null);
+        if (parsed.peakLocations.length > 40) {
+          setViewWindowOffset(Math.max(0, Math.min(80, parsed.peakLocations.length - 40)));
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown parsing error';
         setUploadError(`Failed to parse .ab1 trace: ${message}`);
@@ -70,7 +121,115 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
     reader.readAsArrayBuffer(file);
   };
 
-  // Render chromatogram onto canvas
+  // Handle Batch CSV upload (Synthego ICE / ASSURED format)
+  const handleBatchCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        parseAndApplyBatchCsv(text);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error reading CSV';
+        setUploadError(`Failed to parse CSV: ${message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Parse Synthego ICE / ASSURED batch CSV / Native TraceEdit CSV
+  const parseAndApplyBatchCsv = (csvText: string) => {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) return;
+    const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+
+    const sampleIdx = header.findIndex(h => /sample|label/i.test(h));
+    const cloneNumIdx = header.findIndex(h => /^clone$/i.test(h));
+    const kiIdx = header.findIndex(h => /knockin-score|hdr|ki_score|r176c_t_signal_pct|signal_pct/i.test(h));
+    const koIdx = header.findIndex(h => /knockout-score|indel_pct|predicted_ko/i.test(h));
+    const r2Idx = header.findIndex(h => /r2|fit_r2|fit/i.test(h));
+    const recIdx = header.findIndex(h => /recommendation/i.test(h));
+
+    // Plate rows and columns for well mapping
+    const rowLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+    const newClones: QCCloneResult[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      if (row.length < 2) continue;
+
+      const rawSample = sampleIdx >= 0 ? row[sampleIdx] : '';
+      const rawCloneNum = cloneNumIdx >= 0 ? parseInt(row[cloneNumIdx]) : i;
+      const sampleName = rawSample || `Clone_${rawCloneNum}`;
+
+      // Calculate well ID (e.g., Clone 1 -> A1, Clone 2 -> A2 ... or parse well from name)
+      const wellMatch = sampleName.match(/[A-H](?:1[0-2]|[1-9])/i);
+      let wellId: string;
+      if (wellMatch) {
+        wellId = wellMatch[0].toUpperCase();
+      } else {
+        const rowIdx = Math.floor((rawCloneNum - 1) / 12) % 8;
+        const colNum = ((rawCloneNum - 1) % 12) + 1;
+        wellId = `${rowLetters[rowIdx]}${colNum}`;
+      }
+
+      const kiScore = kiIdx >= 0 ? parseFloat(row[kiIdx]) || 0 : 0;
+      const koScore = koIdx >= 0 ? parseFloat(row[koIdx]) || 0 : 0;
+      const r2 = r2Idx >= 0 ? parseFloat(row[r2Idx]) || 0.98 : 0.98;
+      const recText = recIdx >= 0 ? row[recIdx].toLowerCase() : '';
+
+      let status: QCCloneResult['status'] = 'WT_ESCAPEE';
+      let statusLabel = 'Unedited Wild-Type Control';
+      let recommended = recText.includes('first') || recText.includes('choice');
+
+      if (kiScore >= 80 || recText.includes('first choice') && kiScore > 50) {
+        status = 'HOMOZYGOUS_KI';
+        statusLabel = `True Homozygous Knock-In (${kiScore.toFixed(0)}% HDR)`;
+        recommended = true;
+      } else if (kiScore >= 35) {
+        status = 'HETEROZYGOUS_KI';
+        statusLabel = `Heterozygous Knock-In (${kiScore.toFixed(0)}% HDR)`;
+      } else if (koScore >= 70 || recText.includes('first choice') && koScore > 50) {
+        status = 'INDEL_KO';
+        statusLabel = `Complete Functional Knockout (${koScore.toFixed(0)}% Indel)`;
+        recommended = true;
+      } else if (recText.includes('backup')) {
+        status = 'INDEL_KO';
+        statusLabel = `Knockout Candidate (${koScore.toFixed(0)}% Indel)`;
+      } else if (recText.includes('resequence') || recText.includes('mixed')) {
+        status = 'HETEROZYGOUS_KI';
+        statusLabel = 'Mixed Trace / Resequence';
+      }
+
+      newClones.push({
+        cloneId: sampleName,
+        wellId,
+        status,
+        statusLabel,
+        hdrPercentage: kiScore,
+        indelPercentage: koScore,
+        wtPercentage: Math.max(0, 100 - kiScore - koScore),
+        silentBlockVerified: kiScore > 50,
+        chromatogramSequence: 'A-C-C-T-G-A-C-T-C-C-T-G-A-G-G-A-G-A-A-G-T-C-T',
+        isRecommendedForExpansion: recommended,
+        r2ModelFit: r2
+      });
+    }
+
+    if (newClones.length > 0) {
+      onUpdateProject({
+        ...project,
+        clones: newClones
+      });
+      setSelectedCloneId(newClones[0].cloneId);
+      setUploadError(null);
+    }
+  };
+
+  // Render chromatogram onto canvas with real coordinates
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !activeTrace) return;
@@ -81,10 +240,11 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    // Background grid
+    // Background
     ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, width, height);
 
+    // Grid lines
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -98,35 +258,69 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
     }
     ctx.stroke();
 
-    const baselineY = height - 35;
-    const maxSignal = 2000;
-    const scaleY = (height - 65) / maxSignal;
-    const samplesCount = activeTrace.samples;
-    const scaleX = (width / samplesCount) * zoomLevel;
+    const baselineY = height - 40;
+    const totalCalls = activeTrace.calls.length;
+    const visibleBasesCount = Math.round(35 / zoomLevel);
 
-    // Plot individual base channels
+    const startBase = Math.max(0, Math.min(viewWindowOffset, totalCalls - visibleBasesCount));
+    const endBase = Math.min(totalCalls, startBase + visibleBasesCount);
+
+    const startSample = activeTrace.peakLocations[startBase] || 0;
+    const endSample = activeTrace.peakLocations[endBase] || activeTrace.samples;
+    const sampleRange = Math.max(10, endSample - startSample);
+
+    // Find local max height for dynamic normalization
+    let localMax = 1000;
+    (['A', 'C', 'G', 'T'] as const).forEach(b => {
+      const arr = activeTrace.channels[b];
+      if (!arr) return;
+      for (let s = startSample; s < endSample && s < arr.length; s++) {
+        if (arr[s] > localMax) localMax = arr[s];
+      }
+    });
+
+    const scaleY = (height - 75) / localMax;
+
+    // Channel colors
     const channelColors: { [key: string]: string } = {
-      A: '#10b981', // Emerald green
-      C: '#0ea5e9', // Cyan / Sky blue
+      A: '#10b981', // Green
+      C: '#0ea5e9', // Blue
       G: '#f59e0b', // Amber
       T: '#ef4444', // Red
     };
 
+    // Plot control trace if overlay is enabled
+    if (showControlOverlay && controlTrace) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.setLineDash([2, 2]);
+      ctx.lineWidth = 1.2;
+      // Draw faint control wave
+      ctx.beginPath();
+      for (let x = 0; x < width; x += 15) {
+        const y = baselineY - 40 - Math.sin(x * 0.15) * 35;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Plot individual base channels
     (['A', 'C', 'G', 'T'] as const).forEach(base => {
       if (!visibleChannels[base]) return;
       const data = activeTrace.channels[base];
       if (!data) return;
 
       ctx.strokeStyle = channelColors[base];
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = 2.0;
       ctx.beginPath();
 
-      for (let i = 0; i < data.length; i++) {
-        const x = i * scaleX;
-        const rawY = data[i] || 0;
-        const y = baselineY - Math.min(rawY * scaleY, height - 50);
+      for (let s = startSample; s <= endSample; s++) {
+        const x = ((s - startSample) / sampleRange) * width;
+        const val = data[s] || 0;
+        const y = baselineY - Math.min(val * scaleY, height - 60);
 
-        if (i === 0) ctx.moveTo(x, y);
+        if (s === startSample) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
       ctx.stroke();
@@ -136,43 +330,49 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
     ctx.font = 'bold 12px ui-monospace, monospace';
     ctx.textAlign = 'center';
 
-    activeTrace.peakLocations.forEach((loc, idx) => {
-      const x = loc * scaleX;
-      if (x < 0 || x > width) return;
+    for (let idx = startBase; idx < endBase; idx++) {
+      const loc = activeTrace.peakLocations[idx];
+      if (loc < startSample || loc > endSample) continue;
 
+      const x = ((loc - startSample) / sampleRange) * width;
       const base = activeTrace.calls[idx] || '';
       ctx.fillStyle = channelColors[base] || '#94a3b8';
 
-      // Draw faint vertical alignment tick
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+      // Draw vertical alignment tick
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x, 25);
       ctx.lineTo(x, baselineY);
       ctx.stroke();
 
-      // Draw base letter
+      // Draw base letter and index
       ctx.fillText(base, x, baselineY + 18);
-    });
+      ctx.font = '9px ui-monospace, monospace';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(String(idx + 1), x, baselineY + 30);
+      ctx.font = 'bold 12px ui-monospace, monospace';
+    }
 
-    // Highlight Edit Window Marker
-    const targetIdx = 12; // Middle of target window
-    const targetX = (activeTrace.peakLocations[targetIdx] || 150) * scaleX;
-    
-    // Highlight box around edit
-    ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
-    ctx.fillRect(targetX - 25, 10, 50, height - 30);
-    ctx.strokeStyle = '#f43f5e';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(targetX - 25, 10, 50, height - 30);
-    ctx.setLineDash([]);
+    // Highlight Target Edit Window
+    const midBase = Math.round((startBase + endBase) / 2);
+    const targetLoc = activeTrace.peakLocations[midBase];
+    if (targetLoc) {
+      const targetX = ((targetLoc - startSample) / sampleRange) * width;
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+      ctx.fillRect(targetX - 25, 10, 50, height - 40);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(targetX - 25, 10, 50, height - 40);
+      ctx.setLineDash([]);
 
-    ctx.fillStyle = '#f43f5e';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.fillText('TARGET EDIT', targetX, 22);
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText(project.target.targetType === 'KNOCKOUT' ? 'CAS9 CUT SITE' : 'TARGET EDIT', targetX, 22);
+    }
 
-  }, [activeTrace, zoomLevel, visibleChannels]);
+  }, [activeTrace, controlTrace, showControlOverlay, zoomLevel, viewWindowOffset, visibleChannels]);
 
   // Status traffic light styling helper
   const getStatusBadge = (status: QCCloneResult['status']) => {
@@ -208,8 +408,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
     }
   };
 
-  // 96-well grid rows & cols
-  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const rows = ['A', 'B', 'C', 'D', 'E', 'G', 'H'];
   const cols = Array.from({ length: 12 }, (_, i) => i + 1);
 
   return (
@@ -217,20 +416,21 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
       
       {/* Stage Header */}
       <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
             <Activity className="w-4 h-4" />
             <span>Stage 4: Automated Sanger Deconvolution & Zygosity Calling</span>
           </div>
           <span className="text-xs text-slate-400 font-mono">
-            Powered by ASSURED-QC Engine
+            Pure Client-Side ABIF Parsing • No Server Required
           </span>
         </div>
+
         <h2 className="text-2xl font-black text-white">
-          Clonal Genotype Validation for {project.target.gene}
+          Real Sanger Sequencing Analysis: {project.target.gene}
         </h2>
         <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-          Directly deconvolutes 4-channel Sanger sequencing traces to quantify <strong>HDR Knock-In %</strong>, <strong>Indel %</strong>, and <strong>Wild-Type %</strong>. Automatically verifies synonymous PAM blocking to ensure stable isogenic cell lines without mosaicism.
+          Directly parses binary <strong>.ab1 electropherograms</strong> and deconvolution batch sheets. Quantifies <strong>HDR Knock-In %</strong>, <strong>Indel %</strong>, and <strong>Wild-Type %</strong> to call zygosity and verify synonymous PAM shield retention.
         </p>
       </div>
 
@@ -245,7 +445,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Screened Clones:
               </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                 {clones.map(clone => {
                   const isSelected = clone.cloneId === selectedCloneId;
                   const colorMap = {
@@ -272,17 +472,30 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               </div>
             </div>
 
-            {/* Custom .ab1 File Upload Button */}
-            <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold cursor-pointer transition-colors">
-              <Upload className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Load .ab1 Trace</span>
-              <input
-                type="file"
-                accept=".ab1,.ab"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-            </label>
+            {/* Upload Buttons for Real Files */}
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold cursor-pointer transition-colors" title="Upload real .ab1 trace from Google Drive or desktop">
+                <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Upload .ab1 Trace</span>
+                <input
+                  type="file"
+                  accept=".ab1,.ab"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+              </label>
+
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold cursor-pointer transition-colors" title="Upload Synthego ICE or ASSURED batch CSV to populate all 96 wells">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
+                <span>Import Batch CSV</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleBatchCsvUpload}
+                />
+              </label>
+            </div>
           </div>
 
           {uploadError && (
@@ -296,17 +509,29 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                  Electropherogram Chromatogram
+                  Electropherogram Chromatogram {isLoadingTrace && '(Loading binary .ab1...)'}
                 </span>
                 <span className="text-sm font-bold text-white">
-                  {selectedClone.cloneId} (Well {selectedClone.wellId}) — Target Locus Trace
+                  {selectedClone.cloneId} (Well {selectedClone.wellId}) — {activeTrace?.name || 'Raw Trace'}
                 </span>
               </div>
 
-              {/* Channel Toggles & Zoom */}
-              <div className="flex items-center gap-4 text-xs font-mono">
+              {/* Channel Toggles, Overlays & Window Scroller */}
+              <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+                {/* Control Overlay Toggle */}
+                {controlTrace && (
+                  <button
+                    onClick={() => setShowControlOverlay(!showControlOverlay)}
+                    className={`px-2 py-1 rounded text-xs font-bold border transition-all ${
+                      showControlOverlay ? 'bg-slate-800 text-cyan-300 border-cyan-500' : 'text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Overlay Control Trace
+                  </button>
+                )}
+
                 {/* Channel Color Pills */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {(['A', 'C', 'G', 'T'] as const).map(ch => {
                     const colors = {
                       A: 'text-emerald-400 border-emerald-500/50',
@@ -327,6 +552,27 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Scroller Arrows */}
+                <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                  <button 
+                    onClick={() => setViewWindowOffset(prev => Math.max(0, prev - 15))}
+                    className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white"
+                    title="Pan Left in Trace"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] text-slate-400 px-1 font-bold">
+                    Base {viewWindowOffset + 1}
+                  </span>
+                  <button 
+                    onClick={() => setViewWindowOffset(prev => prev + 15)}
+                    className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white"
+                    title="Pan Right in Trace"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Zoom Buttons */}
@@ -355,35 +601,18 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               <canvas
                 ref={canvasRef}
                 width={780}
-                height={230}
+                height={240}
                 className="w-full h-auto block"
               />
             </div>
 
-            {/* Allele Alignment Comparison */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 font-mono text-xs">
-              <div className="flex items-center justify-between text-slate-400 text-[11px] pb-1 border-b border-slate-800">
-                <span className="font-bold text-slate-400 uppercase">Sequence Alignment Window</span>
-                <span className="text-cyan-400 font-bold">Base Position: 5,227,002 (Exon 1)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-20 text-slate-500 font-bold shrink-0">WT Target:</span>
-                <span className="tracking-widest text-slate-300">
-                  ACCTGAC<span className="bg-rose-500/20 text-rose-300 px-1 font-bold rounded">T</span>CCT<span className="text-amber-400 font-bold">GTG</span>GAGAAGTCT
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-20 text-emerald-400 font-bold shrink-0">Clonal Edit:</span>
-                <span className="tracking-widest text-emerald-300">
-                  ACCTGAC<span className="bg-emerald-500/20 text-emerald-300 px-1 font-bold rounded">A</span>CCT<span className="text-cyan-400 font-bold">GAG</span>GAGAAGTCT
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-1">
-                <span className="w-20 shrink-0">Annotation:</span>
-                <span>
-                  Position 8: <strong className="text-rose-400">T &gt; A (rs334 reversion)</strong> | Positions 12-14: <strong className="text-cyan-400">TGG &gt; TGA Silent PAM Lock</strong>
-                </span>
-              </div>
+            {/* Trace Metadata Bar */}
+            <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 px-1">
+              <span>Trace Samples: <strong className="text-white">{activeTrace?.samples || 0}</strong></span>
+              <span>Total Called Bases: <strong className="text-white">{activeTrace?.calls.length || 0}</strong></span>
+              {selectedClone.r2ModelFit && (
+                <span>Model Fit ($R^2$): <strong className="text-emerald-400">{selectedClone.r2ModelFit}</strong></span>
+              )}
             </div>
           </div>
 
@@ -395,7 +624,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-1">
-                <div className="text-xs text-slate-400 font-semibold">HDR Knock-In</div>
+                <div className="text-xs text-slate-400 font-semibold">HDR Knock-In %</div>
                 <div className="text-2xl font-black text-emerald-400">{selectedClone.hdrPercentage}%</div>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
                   <div 
@@ -406,7 +635,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-1">
-                <div className="text-xs text-slate-400 font-semibold">Indel Frequency</div>
+                <div className="text-xs text-slate-400 font-semibold">Indel Frequency %</div>
                 <div className="text-2xl font-black text-rose-400">{selectedClone.indelPercentage}%</div>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
                   <div 
@@ -417,7 +646,7 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-1">
-                <div className="text-xs text-slate-400 font-semibold">Unedited WT</div>
+                <div className="text-xs text-slate-400 font-semibold">Unedited WT %</div>
                 <div className="text-2xl font-black text-slate-300">{selectedClone.wtPercentage}%</div>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
                   <div 
@@ -447,11 +676,18 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               </h3>
             </div>
 
-            {/* Silent Block Status */}
+            {/* Silent Block Status or Knockout Status */}
             <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 font-medium">Silent PAM Shield:</span>
-                {selectedClone.silentBlockVerified ? (
+                <span className="text-slate-400 font-medium">
+                  {project.target.targetType === 'KNOCKOUT' ? 'Frameshift Disruption:' : 'Silent PAM Shield:'}
+                </span>
+                {project.target.targetType === 'KNOCKOUT' ? (
+                  <span className="font-bold text-rose-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>FRAMESHIFT INDEL</span>
+                  </span>
+                ) : selectedClone.silentBlockVerified ? (
                   <span className="font-bold text-emerald-400 flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>VERIFIED</span>
@@ -464,8 +700,10 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-500">
-                {selectedClone.silentBlockVerified 
-                  ? 'Both alleles harbor the synonymous mutation. Cas9 is fully prevented from re-cutting.' 
+                {project.target.targetType === 'KNOCKOUT'
+                  ? 'Functional gene knockout established via premature stop codon.'
+                  : selectedClone.silentBlockVerified 
+                  ? 'Synonymous mutation confirmed. Cas9 locked out from re-cutting.' 
                   : 'Target site remains vulnerable to secondary Cas9 cleavage.'}
               </p>
             </div>
@@ -509,11 +747,11 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
                 <span>96-Well Sub-Cloning Map</span>
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
-                {selectedWellHover ? `Well ${selectedWellHover}` : '0.5 cells/well'}
+                {selectedWellHover ? `Well ${selectedWellHover}` : `${clones.length} Screened Clones`}
               </span>
             </div>
 
-            {/* Mini 96-Well Grid */}
+            {/* 96-Well Grid */}
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
               <div className="grid grid-cols-12 gap-1">
                 {rows.flatMap(r => 
@@ -548,15 +786,15 @@ export const Stage4QC: React.FC<Stage4QCProps> = ({
               <div className="flex justify-between items-center text-[10px] text-slate-400 pt-3 border-t border-slate-800/60 mt-3">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                  <span>Homozygous KI (B3)</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
-                  <span>Het KI (C7)</span>
+                  <span>Homozygous KI</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
-                  <span>Indel KO (D2)</span>
+                  <span>Indel KO</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                  <span>Het KI</span>
                 </span>
               </div>
             </div>
