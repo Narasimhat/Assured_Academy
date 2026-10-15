@@ -7,7 +7,8 @@ import {
   ShieldAlert, 
   ExternalLink,
   Award,
-  Sparkles
+  Sparkles,
+  Workflow
 } from 'lucide-react';
 import { TabType } from '../../types';
 
@@ -53,6 +54,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('workbench')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'workbench'
+                  ? 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <Workflow className="w-4 h-4 text-cyan-400" />
+              <span className="font-bold">Workbench</span>
+              <span className="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                5-Stage
+              </span>
+            </button>
+
             <button
               onClick={() => setActiveTab('academy')}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -161,6 +177,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Navigation bar */}
         <div className="flex md:hidden items-center justify-around py-2 border-t border-slate-900 overflow-x-auto text-xs">
+          <button 
+            onClick={() => setActiveTab('workbench')} 
+            className={`px-2 py-1 ${activeTab === 'workbench' ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}
+          >
+            Workbench
+          </button>
           <button 
             onClick={() => setActiveTab('academy')} 
             className={`px-2 py-1 ${activeTab === 'academy' ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}

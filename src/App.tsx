@@ -8,9 +8,10 @@ import { FrugalLabConfig } from './components/frugal/FrugalLabConfig';
 import { RareDiseaseHub } from './components/missions/RareDiseaseHub';
 import { ToolLaunchpad } from './components/tools/ToolLaunchpad';
 import { CertificateModal } from './components/certificate/CertificateModal';
+import { UnifiedPipeline } from './components/pipeline/UnifiedPipeline';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('academy');
+  const [activeTab, setActiveTab] = useState<TabType>('workbench');
   
   // Persisted state in localStorage
   const [masteryPoints, setMasteryPoints] = useState<number>(() => {
@@ -62,6 +63,10 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'workbench' && (
+          <UnifiedPipeline />
+        )}
+
         {activeTab === 'academy' && (
           <AcademyHub
             completedLessons={completedLessons}
