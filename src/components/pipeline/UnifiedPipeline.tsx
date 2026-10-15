@@ -53,12 +53,13 @@ export const UnifiedPipeline: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
+      <aside className="rounded-2xl border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100"><strong>Teaching workbench.</strong> Presets and simulations explain the workflow; they are not new experimental analysis. For your own design and matched-control trace QC, <a href="/studio/" className="underline font-bold">open Assured Studio</a>.</aside>
       {/* Top Banner & Project Selector */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/40 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-              End-to-End Pipeline
+              Guided practice
             </span>
             <span className="text-xs text-slate-400 font-mono">STAR Protocols (2023)</span>
           </div>

@@ -1,0 +1,4 @@
+# Preserve pinned upstream bytes and their original whitespace for checksum verification.
+apps/studio/vendor/** -text -whitespace
+# Preserve the bundled public reference exactly as obtained from NCBI.
+apps/studio/public/examples/*.gb -text -whitespace

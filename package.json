@@ -6,10 +6,16 @@
   "description": "Assured Academy: Interactive Learning, Virtual Bench, and Rare Disease Modeling Hub for hiPSC Genome Engineering",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "dev:qc": "npm --prefix Assured_QC run dev",
-    "dev:design": "npm --prefix Assured_CRISPR_Design/assured-crispr-designer run dev"
+    "build": "node scripts/build-suite.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 5183 --strictPort",
+    "build:academy": "tsc && vite build",
+    "dev:studio": "npm run dev --workspace=apps/studio -- --port 5182",
+    "test:studio": "npm test --workspace=apps/studio",
+    "test:engines": "npm run test:engines --workspace=apps/studio",
+    "verify:vendor": "node apps/studio/scripts/verify-vendor.mjs",
+    "predev": "node scripts/build-suite.mjs --studio-only",
+    "test:e2e": "playwright test",
+    "test:reference": "node --test test/server/reference.test.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
@@ -27,8 +33,15 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
+    "sirv": "^3.0.2",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.7.2",
     "vite": "^6.0.3"
+  },
+  "workspaces": [
+    "apps/studio"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

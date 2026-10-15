@@ -1,0 +1,14 @@
+[
+  {
+    "engine": "design",
+    "repository": "https://github.com/Narasimhat/Assured_CRISPR_Design",
+    "commit": "820b19654aa5393e051100a03c6ac69e351791ae",
+    "snapshot": "vendor/design"
+  },
+  {
+    "engine": "qc",
+    "repository": "https://github.com/Narasimhat/Assured_QC",
+    "commit": "462d24668cf19af59b4a3902582c6efb4168d290",
+    "snapshot": "vendor/qc"
+  }
+]
